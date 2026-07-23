@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+downloads
+.git
+.gitignore
+README.md
+yt-dlp.exe
+*.log
+error.txt
+error.log
+1784770012174-player-script.js
+1784770012185-player-script.js
