@@ -25,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 const jobs = new Map();
+const jobsDir = '/tmp/jobs';
 
 // OS specific configurations for Vercel
 const isWindows = os.platform() === 'win32';
@@ -33,9 +34,31 @@ const downloadDir = isWindows ? path.join(process.cwd(), 'downloads') : '/tmp';
 
 console.log(`[${new Date().toISOString()}] [INIT] Server starting | platform:${os.platform()} | nodeEnv:${process.env.NODE_ENV} | ytDlp:${ytDlpBinary}`);
 
-// Ensure local downloads directory exists
+// Ensure directories exist
 if (isWindows && !fs.existsSync(downloadDir)) {
     fs.mkdirSync(downloadDir);
+}
+if (!fs.existsSync(jobsDir)) {
+    fs.mkdirSync(jobsDir, { recursive: true });
+}
+
+// Helper: save job state to file (survives within same instance)
+function saveJobState(pid, state) {
+    try {
+        fs.writeFileSync(path.join(jobsDir, `${pid}.json`), JSON.stringify(state));
+    } catch (e) {
+        console.error(`[${new Date().toISOString()}] [JOB:${pid}] Failed to save state:`, e.message);
+    }
+}
+
+// Helper: load job state from file
+function loadJobState(pid) {
+    try {
+        const data = fs.readFileSync(path.join(jobsDir, `${pid}.json`), 'utf-8');
+        return JSON.parse(data);
+    } catch (e) {
+        return null;
+    }
 }
 
 // --- STEP 1: START ---
@@ -58,7 +81,8 @@ app.post('/api/start', async (req, res) => {
             ytFormat = 'bestaudio'; // yt-dlp will extract audio
         }
 
-        let command = `${ytDlpBinary} --no-warnings -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
+        // Optimized yt-dlp command for Vercel (faster, lower memory)
+        let command = `${ytDlpBinary} --no-warnings --no-playlist --no-check-certificates --buffer-size 16K --concurrent-fragments 1 -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
         if (format === 'mp3') {
             const audioQuality = quality === 'best' ? '0' : '5'; // 0 is best, 5 is ~128kbps
             command += ` -x --audio-format mp3 --audio-quality ${audioQuality}`;
@@ -76,21 +100,28 @@ app.post('/api/start', async (req, res) => {
                 const { stdout } = await execAsync(`${ytDlpBinary} --get-title "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`);
                 const totalElapsed = Date.now() - startTime;
                 console.log(`[${new Date().toISOString()}] [JOB:${pid}] Complete | totalTime:${totalElapsed}ms | title:${stdout.trim()}`);
-                return { title: stdout.trim(), ext, filePath: outputPath };
+                const result = { title: stdout.trim(), ext, filePath: outputPath };
+                saveJobState(pid, { status: 'ok', result, startTime });
+                return result;
             })
             .catch(e => {
                 const elapsed = Date.now() - startTime;
                 console.error(`[${new Date().toISOString()}] [JOB:${pid}] FAILED after ${elapsed}ms | error:${e.message}`);
+                saveJobState(pid, { status: 'error', error: e.message, startTime });
                 throw new Error('Failed to download video');
             });
 
-        jobs.set(pid, { promise: job, status: 'processing', startTime });
+        const jobState = { promise: job, status: 'processing', startTime };
+        jobs.set(pid, jobState);
+        saveJobState(pid, jobState);
 
         // Update job status when done
         job.then(result => {
             jobs.set(pid, { status: 'ok', result, startTime });
+            saveJobState(pid, { status: 'ok', result, startTime });
         }).catch(err => {
             jobs.set(pid, { status: 'error', error: err.message, startTime });
+            saveJobState(pid, { status: 'error', error: err.message, startTime });
         });
 
         res.json({ success: true, pid, title: 'Video' });
@@ -103,18 +134,30 @@ app.post('/api/start', async (req, res) => {
 // --- STEP 2: CHECK STATUS (POLLING) ---
 app.get('/api/status', (req, res) => {
     const jobId = req.query.id;
-    const job = jobs.get(jobId);
+    let job = jobs.get(jobId);
+
+    // Fallback to file-based state if in-memory job is missing (instance recycle)
     if (!job) {
-        console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Job not found — possible instance recycle or invalid ID`);
+        const fileState = loadJobState(jobId);
+        if (fileState) {
+            console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Recovered from file after instance recycle | status:${fileState.status}`);
+            job = fileState;
+            // Restore to in-memory map for subsequent polls
+            jobs.set(jobId, job);
+        }
+    }
+
+    if (!job) {
+        console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Job not found — invalid ID or expired`);
         return res.status(404).json({ error: 'Job not found' });
     }
 
     if (job.status === 'ok') {
-        const elapsed = Date.now() - job.startTime;
+        const elapsed = job.startTime ? Date.now() - job.startTime : 0;
         console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Complete | totalTime:${elapsed}ms`);
         res.json({ progress: 1000, downloadUrl: `/api/stream?pid=${jobId}`, title: job.result.title, ext: job.result.ext });
     } else if (job.status === 'processing') {
-        const elapsed = Date.now() - job.startTime;
+        const elapsed = job.startTime ? Date.now() - job.startTime : 0;
         console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Still processing | elapsed:${elapsed}ms`);
         res.json({ progress: 500 });
     } else {
@@ -128,7 +171,16 @@ app.get('/api/status', (req, res) => {
 app.post('/api/stream', (req, res) => {
     const { downloadUrl, title, ext } = req.body;
     const pid = new URL(downloadUrl, 'http://localhost').searchParams.get('pid');
-    const job = jobs.get(pid);
+    let job = jobs.get(pid);
+
+    // Fallback to file-based state
+    if (!job || job.status !== 'ok') {
+        const fileState = loadJobState(pid);
+        if (fileState && fileState.status === 'ok') {
+            job = fileState;
+            jobs.set(pid, job);
+        }
+    }
 
     if (!job || job.status !== 'ok') {
         console.log(`[${new Date().toISOString()}] [STREAM:${pid}] File not found or job not complete`);
@@ -137,17 +189,23 @@ app.post('/api/stream', (req, res) => {
 
     const safeTitle = (title || 'media').replace(/[^\w\s]/gi, '').replace(/\s+/g, '_');
     const contentType = ext === 'mp4' ? 'video/mp4' : 'audio/mpeg';
-    const fileSize = fs.statSync(job.result.filePath).size;
 
-    console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Streaming file | size:${fileSize} bytes | type:${contentType}`);
+    try {
+        const fileSize = fs.statSync(job.result.filePath).size;
+        console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Streaming file | size:${fileSize} bytes | type:${contentType}`);
 
-    res.download(job.result.filePath, `${safeTitle}.${ext}`, (err) => {
-        if (err) console.error(`[${new Date().toISOString()}] [STREAM:${pid}] Download error:`, err);
-        else console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Download completed successfully`);
-        // Delete file after download
-        fs.unlink(job.result.filePath, () => { });
-        jobs.delete(pid);
-    });
+        res.download(job.result.filePath, `${safeTitle}.${ext}`, (err) => {
+            if (err) console.error(`[${new Date().toISOString()}] [STREAM:${pid}] Download error:`, err);
+            else console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Download completed successfully`);
+            // Delete file after download
+            try { fs.unlinkSync(job.result.filePath); } catch (e) { /* ignore */ }
+            jobs.delete(pid);
+            try { fs.unlinkSync(path.join(jobsDir, `${pid}.json`)); } catch (e) { /* ignore */ }
+        });
+    } catch (err) {
+        console.error(`[${new Date().toISOString()}] [STREAM:${pid}] File access error:`, err.message);
+        res.status(404).send("File not found");
+    }
 });
 
 app.get('/', (req, res) => res.render("index"));

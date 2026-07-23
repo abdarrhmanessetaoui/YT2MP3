@@ -7,7 +7,8 @@
     ],
     "functions": {
         "api/index.js": {
-            "includeFiles": "../yt-dlp"
+            "includeFiles": "../yt-dlp",
+            "maxDuration": 300
         }
     }
 }
