@@ -18,7 +18,7 @@ A fast, free YouTube to MP3 and MP4 converter web application. Convert and downl
 - **Backend:** Node.js, Express
 - **Frontend:** EJS templating, vanilla JavaScript
 - **Video/Audio Processing:** yt-dlp, FFmpeg
-- **Deployment:** Vercel
+- **Deployment:** Vercel / Render / Koyeb / Fly.io
 
 ## Project Structure
 
@@ -35,6 +35,7 @@ A fast, free YouTube to MP3 and MP4 converter web application. Convert and downl
 ├── downloads/            # Local download storage (ignored in production)
 ├── package.json
 ├── vercel.json           # Vercel deployment configuration
+├── render.yaml           # Render deployment configuration
 └── yt-dlp.exe            # Windows binary (Linux binary downloaded during build)
 ```
 
@@ -78,41 +79,48 @@ NODE_ENV=development
 
 ## Deployment
 
-### Render.com (Recommended — 100% Free)
+### Koyeb (Recommended — 100% Free, No Credit Card)
 
-This project is fully configured for deployment on [Render.com](https://render.com) free tier. Render supports long-running Node.js processes without timeout restrictions, making it ideal for video conversion.
+[Koyeb](https://www.koyeb.com) offers a free tier with no credit card required, perfect for this application.
 
-#### Prerequisites
+**Deploy Steps:**
+1. Push your code to GitHub
+2. Sign up at [Koyeb.com](https://app.koyeb.com) (use GitHub login — no credit card needed)
+3. Click **"Create App"** → **"GitHub"**
+4. Select your repository
+5. Koyeb will auto-detect the Node.js app
+6. Set the **Start Command** to: `npm start`
+7. Set the **Port** to: `10000`
+8. Click **"Deploy"**
 
-- A GitHub account
-- Your code pushed to a GitHub repository
+Koyeb will build and deploy your app. The free tier includes 2 services with 1GB RAM and supports long-running processes.
 
-#### Deploy Steps
+### Fly.io (100% Free, No Credit Card)
 
-1. **Push your code to GitHub** (if not already done)
-2. **Sign up at [Render.com](https://render.com)** and connect your GitHub account
-3. **Click "New +" → "Web Service"**
-4. **Select your repository** from the list
-5. **Configure the service:**
-   - **Name:** `tunetube-converter` (or any name you prefer)
-   - **Environment:** `Node`
-   - **Build Command:** `npm install`
+[Fly.io](https://fly.io) offers a free tier with 3 shared VMs and 160GB outbound transfer. No credit card required.
+
+**Deploy Steps:**
+1. Install the Fly CLI: `curl -L https://fly.io/install.sh | sh`
+2. Sign up: `fly auth signup` (no credit card needed)
+3. Launch the app: `fly launch`
+4. Follow the prompts (Fly will auto-detect Node.js)
+5. Deploy: `fly deploy`
+
+### Render.com (Free Tier, Credit Card Required for Verification)
+
+[Render.com](https://render.com) offers a free tier but requires a credit card for account verification.
+
+**Deploy Steps:**
+1. Push your code to GitHub
+2. Sign up at [Render.com](https://render.com)
+3. Click **"New +"** → **"Web Service"**
+4. Select your repository
+5. Configure:
+   - **Build Command:** `npm install && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o yt-dlp && chmod a+rx yt-dlp`
    - **Start Command:** `npm start`
-   - **Plan:** `Free`
-6. **Add environment variable:**
-   - Key: `NODE_ENV`
-   - Value: `production`
-7. **Click "Create Web Service"**
-
-Render will automatically:
-- Install dependencies
-- Download the Linux `yt-dlp` binary during build (via `vercel-build` script)
-- Start the server with `npm start`
-- Provide a public URL (e.g., `https://tunetube-converter.onrender.com`)
-
-#### Persistent Storage (Optional)
-
-The free tier includes a 1GB persistent disk. The [`render.yaml`](render.yaml) file is included to configure a persistent disk for the `downloads/` folder, ensuring files survive server restarts.
+   - **Plan:** Free
+6. Add environment variable: `NODE_ENV=production`
+7. Click **"Create Web Service"**
 
 ### Vercel (Requires Pro Plan)
 
