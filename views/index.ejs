@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>YouTube to MP3 Converter - Fast, Free YT to MP4 Downloader | YT2MP3</title>
+    <meta name="title" content="YouTube to MP3 Converter - Fast, Free YT to MP4 Downloader | YT2MP3">
+    <meta name="description"
+        content="Convert and download YouTube videos to MP3 or MP4 for free. YT2MP3 is the fastest, safest YouTube converter with high-quality 320kbps audio and 1080p video support. No registration required.">
+    <meta name="keywords"
+        content="youtube to mp3, youtube to mp4, youtube converter, yt to mp3, yt to mp4, download youtube videos, free youtube downloader, youtube audio extractor, convert youtube to mp3, fast youtube downloader">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    <meta name="author" content="YT2MP3">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="YouTube to MP3 & MP4 Converter - Free & Fast">
+    <meta property="og:description"
+        content="Download high-quality YouTube videos and audio instantly. No software needed, 100% free.">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="YouTube to MP3 & MP4 Converter - Free & Fast">
+    <meta property="twitter:description"
+        content="Download high-quality YouTube videos and audio instantly. No software needed, 100% free.">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/times-new-roman" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/images/youtube2mp3icon.png" type="image/x-icon">
+</head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9VYKQ8W52L"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-9VYKQ8W52L');
+</script>
+
+<body>
+    <div class="red-bg"></div>
+
+    <div class="main-container">
+        <div class="header">
+            <div class="logo">YT2MP3</div>
+            <div class="nav">
+                <a href="/" class="active">Home</a>
+                <a href="#" class="disabled">FAQ (Soon)</a>
+                <a href="#" class="disabled">Add-on (Soon)</a>
+            </div>
+        </div>
+
+        <div class="hero-text">
+            <h1>YouTube to MP3 Converter</h1>
+            <p>Convert and download YouTube videos as high-quality MP3 (audio) or MP4 (video) files instantly.</p>
+        </div>
+
+        <form onsubmit="startProcess(event)" class="converter-card">
+            <label for="urlInput" class="input-label">Paste your YouTube Link</label>
+            <input type="text" id="urlInput" placeholder="youtube.com/watch?v=..." required>
+
+            <div class="controls-row">
+                <div class="format-toggle">
+                    <input type="radio" id="formatMp3" name="format" value="mp3" checked
+                        onchange="updateQualityOptions()">
+                    <label for="formatMp3">MP3</label>
+
+                    <input type="radio" id="formatMp4" name="format" value="mp4" onchange="updateQualityOptions()">
+                    <label for="formatMp4">MP4</label>
+                </div>
+
+                <select id="qualitySelect" name="quality"
+                    style="padding: 12px; border: 1px solid #ccc; outline: none; font-family: inherit; cursor: pointer; background-color: #f5f5f5;">
+                    <option value="best">Highest Quality</option>
+                    <option value="medium">Medium Quality</option>
+                </select>
+
+                <button type="submit" id="dlBtn">Convert</button>
+            </div>
+
+            <div id="progress-area">
+                <div class="bar-bg">
+                    <div class="bar-fg" id="bar">0%</div>
+                </div>
+                <p id="status-txt">Starting...</p>
+            </div>
+        </form>
+
+        <div class="instructions">
+            <h2>How to download YouTube videos:</h2>
+            <ol>
+                <li><strong>Copy the link:</strong> Find the video you want on YouTube and copy its URL from the address
+                    bar.</li>
+                <li><strong>Paste the link:</strong> Paste the copied YouTube link into the search box above.</li>
+                <li><strong>Choose format:</strong> Select whether you want an MP3 (audio) or MP4 (video) file, and pick
+                    your preferred quality.</li>
+                <li><strong>Convert & Download:</strong> Click the "Convert" button. Once it finishes processing, your
+                    download will start automatically!</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- HIDDEN FORM FOR DOWNLOADING -->
+    <form id="hidden-dl-form" action="/api/stream" method="POST" style="display: none;">
+        <input type="hidden" name="downloadUrl" id="hiddenUrl">
+        <input type="hidden" name="title" id="hiddenTitle">
+        <input type="hidden" name="ext" id="hiddenExt">
+    </form>
+
+    <script>
+        function updateQualityOptions() {
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const qualitySelect = document.getElementById('qualitySelect');
+            qualitySelect.innerHTML = '';
+
+            if (format === 'mp4') {
+                qualitySelect.innerHTML += '<option value="best">Highest (1080p+)</option>';
+                qualitySelect.innerHTML += '<option value="720p">720p</option>';
+                qualitySelect.innerHTML += '<option value="360p">360p</option>';
+            } else {
+                qualitySelect.innerHTML += '<option value="best">Highest (320kbps)</option>';
+                qualitySelect.innerHTML += '<option value="medium">Medium (128kbps)</option>';
+            }
+        }
+
+        // Initialize options on load
+        updateQualityOptions();
+
+        async function startProcess(e) {
+            e.preventDefault();
+
+            const url = document.getElementById('urlInput').value;
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const quality = document.getElementById('qualitySelect').value;
+            const btn = document.getElementById('dlBtn');
+            const area = document.getElementById('progress-area');
+            const bar = document.getElementById('bar');
+            const txt = document.getElementById('status-txt');
+
+            // UI Reset
+            btn.disabled = true;
+            area.style.display = 'block';
+            bar.style.width = '0%';
+            txt.style.color = '#333';
+
+            try {
+                // 1. Request Start
+                const startRes = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format, quality })
+                });
+                const startData = await startRes.json();
+
+                if (!startData.success) throw new Error(startData.error);
+
+                // 2. Start Loop
+                const interval = setInterval(async () => {
+                    const pollRes = await fetch(`/api/status?id=${startData.pid}`);
+                    const pollData = await pollRes.json();
+
+                    // Calculate Percentage (API gives 0-1000)
+                    const progress = pollData.progress || 0;
+                    const percent = Math.floor(progress / 10);
+
+                    bar.style.width = percent + '%';
+                    bar.innerText = percent + '%';
+                    txt.innerText = "Converting...";
+
+                    // 3. CHECK FOR COMPLETION
+                    if (pollData.downloadUrl) {
+                        clearInterval(interval);
+                        txt.innerText = "Done! Downloading...";
+                        bar.style.background = "#2196F3"; // Blue
+
+                        // 4. TRIGGER INSTANT DOWNLOAD VIA HIDDEN FORM
+                        document.getElementById('hiddenUrl').value = pollData.downloadUrl;
+                        document.getElementById('hiddenTitle').value = pollData.title || startData.title;
+                        document.getElementById('hiddenExt').value = pollData.ext || 'mp3';
+                        document.getElementById('hidden-dl-form').submit();
+
+                        // Reset button shortly after
+                        setTimeout(() => { btn.disabled = false; btn.innerText = "Convert"; }, 3000);
+                    }
+                }, 6000);
+
+            } catch (err) {
+                console.error(err);
+                txt.innerText = "Error: " + err.message;
+                txt.style.color = "red";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
