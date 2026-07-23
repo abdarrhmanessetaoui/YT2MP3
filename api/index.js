@@ -19,8 +19,8 @@ const PORT = process.env.PORT || 3000;
 const execAsync = promisify(exec);
 
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.set('views', path.join(__dirname, '../views'));
+app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -28,7 +28,7 @@ const jobs = new Map();
 
 // OS specific configurations for Vercel
 const isWindows = os.platform() === 'win32';
-const ytDlpBinary = isWindows ? '.\\yt-dlp.exe' : path.join(__dirname, 'yt-dlp');
+const ytDlpBinary = isWindows ? path.join(__dirname, '../yt-dlp.exe') : path.join(__dirname, '../yt-dlp');
 const downloadDir = isWindows ? path.join(process.cwd(), 'downloads') : '/tmp';
 
 // Ensure local downloads directory exists

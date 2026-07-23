@@ -1,20 +1,13 @@
 {
-    "version": 2,
-    "builds": [
+    "rewrites": [
         {
-            "src": "app.js",
-            "use": "@vercel/node"
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "app.js"
+            "source": "/(.*)",
+            "destination": "/api"
         }
     ],
     "functions": {
-        "app.js": {
-            "includeFiles": "yt-dlp"
+        "api/index.js": {
+            "includeFiles": "../yt-dlp"
         }
     }
 }

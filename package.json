@@ -2,10 +2,10 @@
   "name": "tunetube-converter",
   "version": "1.0.0",
   "description": "",
-  "main": "app.js",
+  "main": "api/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon app.js",
+    "dev": "nodemon api/index.js",
     "vercel-build": "curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o yt-dlp && chmod a+rx yt-dlp"
   },
   "keywords": [],
