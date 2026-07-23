@@ -5,6 +5,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import ffmpegPath from 'ffmpeg-static';
 
 dotenv.config();
 
@@ -19,6 +21,16 @@ app.use(express.json());
 
 const jobs = new Map();
 
+// OS specific configurations for Vercel
+const isWindows = os.platform() === 'win32';
+const ytDlpBinary = isWindows ? '.\\yt-dlp.exe' : './yt-dlp';
+const downloadDir = isWindows ? path.join(process.cwd(), 'downloads') : '/tmp';
+
+// Ensure local downloads directory exists
+if (isWindows && !fs.existsSync(downloadDir)) {
+    fs.mkdirSync(downloadDir);
+}
+
 // --- STEP 1: START ---
 app.post('/api/start', async (req, res) => {
     try {
@@ -28,7 +40,7 @@ app.post('/api/start', async (req, res) => {
 
         const pid = videoIdMatch[1] + '-' + Date.now();
         const ext = format === 'mp4' ? 'mp4' : 'mp3';
-        const outputPath = path.join(process.cwd(), 'downloads', `${pid}.${ext}`);
+        const outputPath = path.join(downloadDir, `${pid}.${ext}`);
 
         let ytFormat = '';
         if (format === 'mp4') {
@@ -39,7 +51,7 @@ app.post('/api/start', async (req, res) => {
             ytFormat = 'bestaudio'; // yt-dlp will extract audio
         }
 
-        let command = `.\\yt-dlp.exe --no-warnings -f "${ytFormat}" --ffmpeg-location "node_modules/ffmpeg-static/ffmpeg.exe" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
+        let command = `${ytDlpBinary} --no-warnings -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
         if (format === 'mp3') {
             const audioQuality = quality === 'best' ? '0' : '5'; // 0 is best, 5 is ~128kbps
             command += ` -x --audio-format mp3 --audio-quality ${audioQuality}`;
@@ -49,7 +61,7 @@ app.post('/api/start', async (req, res) => {
         const job = execAsync(command)
             .then(async () => {
                 // Get title
-                const { stdout } = await execAsync(`.\\yt-dlp.exe --get-title "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`);
+                const { stdout } = await execAsync(`${ytDlpBinary} --get-title "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`);
                 return { title: stdout.trim(), ext, filePath: outputPath };
             })
             .catch(e => {
@@ -105,4 +117,8 @@ app.post('/api/stream', (req, res) => {
 
 app.get('/', (req, res) => res.render("index"));
 
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+}
+
+export default app;
