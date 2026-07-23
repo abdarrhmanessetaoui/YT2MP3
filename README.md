@@ -78,22 +78,37 @@ NODE_ENV=development
 
 ## Deployment
 
+### Vercel (Primary)
+
 This project is optimized for deployment on [Vercel](https://vercel.com).
 
-### Vercel Configuration
+**Important:** The free Hobby plan has a 10-second function timeout, which is insufficient for video downloads. For reliable operation, upgrade to **Vercel Pro** (60s timeout, configurable up to 5 minutes with `maxDuration`).
+
+#### Vercel Configuration
 
 The [`vercel.json`](vercel.json) file configures:
 - **Rewrites:** All routes are directed to the `/api` serverless function
 - **Functions:** The `yt-dlp` binary is included in the deployment bundle
 - **Build Script:** Downloads the Linux version of `yt-dlp` during the build process
+- **Max Duration:** Set to 300 seconds (5 minutes) for Pro plan
 
-### Deploy Steps
+#### Deploy Steps
 
 1. Push your code to GitHub
 2. Import the repository in the Vercel dashboard
 3. Vercel will automatically detect the Node.js project and deploy it
 
 No additional build settings are required — the `vercel.json` handles all configuration.
+
+### Alternative Platforms
+
+If you prefer not to upgrade to Vercel Pro, you can deploy to platforms that support long-running processes:
+
+- **[Render.com](https://render.com)** — Free tier, supports persistent Node.js servers
+- **[Railway.app](https://railway.app)** — Free tier, supports long-running processes
+- **[Fly.io](https://fly.io)** — Free tier, supports Docker containers
+
+For these platforms, use the `npm start` command and ensure the `PORT` environment variable is set.
 
 ## API Endpoints
 
@@ -109,6 +124,7 @@ No additional build settings are required — the `vercel.json` handles all conf
 | Command       | Description                          |
 |---------------|--------------------------------------|
 | `npm run dev` | Start development server with nodemon |
+| `npm start`   | Start production server              |
 | `npm test`    | Run tests (placeholder)              |
 
 ## License

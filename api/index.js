@@ -81,8 +81,8 @@ app.post('/api/start', async (req, res) => {
             ytFormat = 'bestaudio'; // yt-dlp will extract audio
         }
 
-        // Optimized yt-dlp command for Vercel (faster, lower memory)
-        let command = `${ytDlpBinary} --no-warnings --no-playlist --no-check-certificates --buffer-size 16K --concurrent-fragments 1 -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
+        // yt-dlp command optimized for Vercel reliability
+        let command = `${ytDlpBinary} --no-warnings --no-playlist --no-check-certificates --buffer-size 64K -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
         if (format === 'mp3') {
             const audioQuality = quality === 'best' ? '0' : '5'; // 0 is best, 5 is ~128kbps
             command += ` -x --audio-format mp3 --audio-quality ${audioQuality}`;
@@ -210,7 +210,8 @@ app.post('/api/stream', (req, res) => {
 
 app.get('/', (req, res) => res.render("index"));
 
-if (process.env.NODE_ENV !== 'production') {
+// Start server if not on Vercel (Vercel handles server startup via serverless functions)
+if (!process.env.VERCEL) {
     app.listen(PORT, () => console.log(`Server running on ${PORT}`));
 }
 

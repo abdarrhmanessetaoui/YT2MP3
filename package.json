@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon api/index.js",
+    "start": "node api/index.js",
     "vercel-build": "curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o yt-dlp && chmod a+rx yt-dlp"
   },
   "keywords": [],
