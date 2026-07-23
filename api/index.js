@@ -18,8 +18,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const execAsync = promisify(exec);
 
-console.log(`[${new Date().toISOString()}] [INIT] Server starting | platform:${os.platform()} | nodeEnv:${process.env.NODE_ENV} | ytDlp:${ytDlpBinary}`);
-
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 app.use(express.static(path.join(__dirname, '../public')));
@@ -32,6 +30,8 @@ const jobs = new Map();
 const isWindows = os.platform() === 'win32';
 const ytDlpBinary = isWindows ? path.join(__dirname, '../yt-dlp.exe') : path.join(__dirname, '../yt-dlp');
 const downloadDir = isWindows ? path.join(process.cwd(), 'downloads') : '/tmp';
+
+console.log(`[${new Date().toISOString()}] [INIT] Server starting | platform:${os.platform()} | nodeEnv:${process.env.NODE_ENV} | ytDlp:${ytDlpBinary}`);
 
 // Ensure local downloads directory exists
 if (isWindows && !fs.existsSync(downloadDir)) {
