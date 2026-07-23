@@ -133,37 +133,45 @@ app.post('/api/start', async (req, res) => {
 
 // --- STEP 2: CHECK STATUS (POLLING) ---
 app.get('/api/status', (req, res) => {
-    const jobId = req.query.id;
-    let job = jobs.get(jobId);
+    try {
+        const jobId = req.query.id;
+        let job = jobs.get(jobId);
 
-    // Fallback to file-based state if in-memory job is missing (instance recycle)
-    if (!job) {
-        const fileState = loadJobState(jobId);
-        if (fileState) {
-            console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Recovered from file after instance recycle | status:${fileState.status}`);
-            job = fileState;
-            // Restore to in-memory map for subsequent polls
-            jobs.set(jobId, job);
+        // Fallback to file-based state if in-memory job is missing (instance recycle)
+        if (!job) {
+            const fileState = loadJobState(jobId);
+            if (fileState) {
+                console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Recovered from file after instance recycle | status:${fileState.status}`);
+                job = fileState;
+                // Restore to in-memory map for subsequent polls
+                jobs.set(jobId, job);
+            }
         }
-    }
 
-    if (!job) {
-        console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Job not found — invalid ID or expired`);
-        return res.status(404).json({ error: 'Job not found' });
-    }
+        if (!job) {
+            console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Job not found — invalid ID or expired`);
+            return res.status(404).json({ error: 'Job not found' });
+        }
 
-    if (job.status === 'ok') {
-        const elapsed = job.startTime ? Date.now() - job.startTime : 0;
-        console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Complete | totalTime:${elapsed}ms`);
-        res.json({ progress: 1000, downloadUrl: `/api/stream?pid=${jobId}`, title: job.result.title, ext: job.result.ext });
-    } else if (job.status === 'processing') {
-        const elapsed = job.startTime ? Date.now() - job.startTime : 0;
-        console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Still processing | elapsed:${elapsed}ms`);
-        res.json({ progress: 500 });
-    } else {
-        const elapsed = job.startTime ? Date.now() - job.startTime : 0;
-        console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Error | elapsed:${elapsed}ms | error:${job.error}`);
-        res.status(500).json({ error: job.error });
+        if (job.status === 'ok') {
+            const elapsed = job.startTime ? Date.now() - job.startTime : 0;
+            console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Complete | totalTime:${elapsed}ms`);
+            const title = job.result?.title || 'Video';
+            const ext = job.result?.ext || 'mp3';
+            res.json({ progress: 1000, downloadUrl: `/api/stream?pid=${jobId}`, title, ext });
+        } else if (job.status === 'processing') {
+            const elapsed = job.startTime ? Date.now() - job.startTime : 0;
+            console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Still processing | elapsed:${elapsed}ms`);
+            res.json({ progress: 500 });
+        } else {
+            const elapsed = job.startTime ? Date.now() - job.startTime : 0;
+            const errorMsg = job.error || 'Unknown error';
+            console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Error | elapsed:${elapsed}ms | error:${errorMsg}`);
+            res.status(500).json({ error: errorMsg });
+        }
+    } catch (e) {
+        console.error(`[${new Date().toISOString()}] [STATUS] Unhandled error:`, e);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
