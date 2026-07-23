@@ -78,11 +78,45 @@ NODE_ENV=development
 
 ## Deployment
 
-### Vercel (Primary)
+### Render.com (Recommended — 100% Free)
 
-This project is optimized for deployment on [Vercel](https://vercel.com).
+This project is fully configured for deployment on [Render.com](https://render.com) free tier. Render supports long-running Node.js processes without timeout restrictions, making it ideal for video conversion.
 
-**Important:** The free Hobby plan has a 10-second function timeout, which is insufficient for video downloads. For reliable operation, upgrade to **Vercel Pro** (60s timeout, configurable up to 5 minutes with `maxDuration`).
+#### Prerequisites
+
+- A GitHub account
+- Your code pushed to a GitHub repository
+
+#### Deploy Steps
+
+1. **Push your code to GitHub** (if not already done)
+2. **Sign up at [Render.com](https://render.com)** and connect your GitHub account
+3. **Click "New +" → "Web Service"**
+4. **Select your repository** from the list
+5. **Configure the service:**
+   - **Name:** `tunetube-converter` (or any name you prefer)
+   - **Environment:** `Node`
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+   - **Plan:** `Free`
+6. **Add environment variable:**
+   - Key: `NODE_ENV`
+   - Value: `production`
+7. **Click "Create Web Service"**
+
+Render will automatically:
+- Install dependencies
+- Download the Linux `yt-dlp` binary during build (via `vercel-build` script)
+- Start the server with `npm start`
+- Provide a public URL (e.g., `https://tunetube-converter.onrender.com`)
+
+#### Persistent Storage (Optional)
+
+The free tier includes a 1GB persistent disk. The [`render.yaml`](render.yaml) file is included to configure a persistent disk for the `downloads/` folder, ensuring files survive server restarts.
+
+### Vercel (Requires Pro Plan)
+
+This project can also be deployed on [Vercel](https://vercel.com), but the free Hobby plan has a 10-second function timeout that is insufficient for video downloads. For reliable operation, upgrade to **Vercel Pro**.
 
 #### Vercel Configuration
 
@@ -99,16 +133,6 @@ The [`vercel.json`](vercel.json) file configures:
 3. Vercel will automatically detect the Node.js project and deploy it
 
 No additional build settings are required — the `vercel.json` handles all configuration.
-
-### Alternative Platforms
-
-If you prefer not to upgrade to Vercel Pro, you can deploy to platforms that support long-running processes:
-
-- **[Render.com](https://render.com)** — Free tier, supports persistent Node.js servers
-- **[Railway.app](https://railway.app)** — Free tier, supports long-running processes
-- **[Fly.io](https://fly.io)** — Free tier, supports Docker containers
-
-For these platforms, use the `npm start` command and ensure the `PORT` environment variable is set.
 
 ## API Endpoints
 

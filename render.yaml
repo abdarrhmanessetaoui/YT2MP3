@@ -3,7 +3,7 @@ services:
     name: tunetube-converter
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o yt-dlp && chmod a+rx yt-dlp
     startCommand: npm start
     envVars:
       - key: NODE_ENV
