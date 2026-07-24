@@ -106,9 +106,10 @@ app.post('/api/start', async (req, res) => {
             })
             .catch(e => {
                 const elapsed = Date.now() - startTime;
-                console.error(`[${new Date().toISOString()}] [JOB:${pid}] FAILED after ${elapsed}ms | error:${e.message}`);
-                saveJobState(pid, { status: 'error', error: e.message, startTime });
-                throw new Error('Failed to download video');
+                const errorMsg = e.message || 'Unknown error';
+                console.error(`[${new Date().toISOString()}] [JOB:${pid}] FAILED after ${elapsed}ms | error:${errorMsg}`);
+                saveJobState(pid, { status: 'error', error: errorMsg, startTime });
+                throw new Error(errorMsg);
             });
 
         const jobState = { promise: job, status: 'processing', startTime };
@@ -127,7 +128,7 @@ app.post('/api/start', async (req, res) => {
         res.json({ success: true, pid, title: 'Video' });
     } catch (e) {
         console.error(`[${new Date().toISOString()}] [START] Error:`, e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message || 'Failed to start download' });
     }
 });
 
@@ -150,7 +151,7 @@ app.get('/api/status', (req, res) => {
 
         if (!job) {
             console.log(`[${new Date().toISOString()}] [STATUS:${jobId}] Job not found — invalid ID or expired`);
-            return res.status(404).json({ error: 'Job not found' });
+            return res.status(404).json({ error: 'Job not found. The job may have expired or the server was restarted.' });
         }
 
         if (job.status === 'ok') {
