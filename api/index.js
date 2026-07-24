@@ -81,8 +81,9 @@ app.post('/api/start', async (req, res) => {
             ytFormat = 'bestaudio'; // yt-dlp will extract audio
         }
 
-        // yt-dlp command optimized for reliability
-        let command = `${ytDlpBinary} --no-warnings --no-playlist --no-check-certificates --buffer-size 64K -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
+        // yt-dlp command with browser-like headers to avoid bot detection
+        const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        let command = `${ytDlpBinary} --no-warnings --no-playlist --no-check-certificates --buffer-size 64K --user-agent "${userAgent}" --referer "https://www.youtube.com/" -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
         if (format === 'mp3') {
             const audioQuality = quality === 'best' ? '0' : '5'; // 0 is best, 5 is ~128kbps
             command += ` -x --audio-format mp3 --audio-quality ${audioQuality}`;
