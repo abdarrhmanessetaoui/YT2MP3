@@ -3,6 +3,15 @@
 A fast, free YouTube to MP3 and MP4 converter web application. Convert and download YouTube videos as high-quality audio (MP3) or video (MP4) files instantly. No registration required.
 
 ![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)
+![Live Demo](https://img.shields.io/badge/Live%20Demo-yt2mp3.fly.dev-brightgreen)
+
+## Preview
+
+![App Preview](public/images/image.png)
+
+## Live Demo
+
+Try the application live at: **[https://yt2mp3.fly.dev/](https://yt2mp3.fly.dev/)**
 
 ## Features
 
@@ -59,10 +68,14 @@ A fast, free YouTube to MP3 and MP4 converter web application. Convert and downl
 ### Setup
 
 ```bash
-# Install dependencies
+# 1. Clone the repository
+git clone https://github.com/abdarrhmanessetaoui/YT2MP3.git
+cd YT2MP3
+
+# 2. Install dependencies
 npm install
 
-# Start development server
+# 3. Start development server
 npm run dev
 ```
 
@@ -75,6 +88,12 @@ Create a `.env` file in the root directory:
 ```env
 PORT=3000
 NODE_ENV=development
+```
+
+### Running in Production Mode
+
+```bash
+npm start
 ```
 
 ## Deployment
