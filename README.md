@@ -8,6 +8,8 @@
 
 **Fast, free YouTube to MP3 & MP4 converter. No sign-up required.**
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-yt2mp3.fly.dev-brightgreen)](https://yt2mp3.fly.dev/)
+
 ![App Preview](public/images/image.png)
 
 </div>
