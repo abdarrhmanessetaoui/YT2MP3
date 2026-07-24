@@ -1,40 +1,47 @@
+<div align="center">
+
 # yt2mp3
 
-A fast, free YouTube to MP3 and MP4 converter. Paste a YouTube link, choose your format and quality, and download instantly. No registration required.
+![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)
+![Express](https://img.shields.io/badge/Express-4.x-black.svg)
 
-![Preview](public/images/image.png)
+**Fast, free YouTube to MP3 & MP4 converter. No sign-up required.**
+
+![App Preview](public/images/image.png)
+
+</div>
 
 ## Features
 
-- Convert YouTube videos to MP3 (audio) or MP4 (video)
+- Convert YouTube videos to **MP3** (audio) or **MP4** (video)
 - Multiple quality options: Highest, 720p, 360p
 - Instant download — no waiting
-- 100% free, no sign-up needed
+- 100% free, no registration
 
-## Local Development
-
-### Prerequisites
-
-- Node.js (v18+)
-- npm
-
-### Setup
+## Quick Start
 
 ```bash
 # Install dependencies
 npm install
 
-# Start the server
+# Start development server
 npm run dev
 ```
 
 Open `http://localhost:3000` in your browser.
 
-### Production
+## Production
 
 ```bash
 npm start
 ```
+
+## Tech Stack
+
+- **Backend:** Node.js, Express
+- **Frontend:** EJS, vanilla JavaScript
+- **Processing:** yt-dlp, FFmpeg
 
 ## License
 
