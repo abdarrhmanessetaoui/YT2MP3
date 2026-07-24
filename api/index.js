@@ -81,7 +81,7 @@ app.post('/api/start', async (req, res) => {
             ytFormat = 'bestaudio'; // yt-dlp will extract audio
         }
 
-        // yt-dlp command optimized for Vercel reliability
+        // yt-dlp command optimized for reliability
         let command = `${ytDlpBinary} --no-warnings --no-playlist --no-check-certificates --buffer-size 64K -f "${ytFormat}" --ffmpeg-location "${ffmpegPath}" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`;
         if (format === 'mp3') {
             const audioQuality = quality === 'best' ? '0' : '5'; // 0 is best, 5 is ~128kbps
@@ -91,41 +91,71 @@ app.post('/api/start', async (req, res) => {
         const startTime = Date.now();
         console.log(`[${new Date().toISOString()}] [JOB:${pid}] Starting download | format:${format} quality:${quality} | platform:${os.platform()} | nodeEnv:${process.env.NODE_ENV}`);
 
-        // Start yt-dlp job in background
-        const job = execAsync(command, { timeout: 300000 }) // 5 minute timeout for yt-dlp process
-            .then(async () => {
+        // On Vercel (serverless), use background job with polling
+        // On other platforms (Fly.io, Render), process synchronously to avoid state loss
+        if (process.env.VERCEL) {
+            // VERCEL: Background job with polling
+            const job = execAsync(command, { timeout: 300000 })
+                .then(async () => {
+                    const elapsed = Date.now() - startTime;
+                    console.log(`[${new Date().toISOString()}] [JOB:${pid}] yt-dlp finished in ${elapsed}ms | getting title...`);
+                    const { stdout } = await execAsync(`${ytDlpBinary} --get-title "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`);
+                    const totalElapsed = Date.now() - startTime;
+                    console.log(`[${new Date().toISOString()}] [JOB:${pid}] Complete | totalTime:${totalElapsed}ms | title:${stdout.trim()}`);
+                    const result = { title: stdout.trim(), ext, filePath: outputPath };
+                    saveJobState(pid, { status: 'ok', result, startTime });
+                    return result;
+                })
+                .catch(e => {
+                    const elapsed = Date.now() - startTime;
+                    const errorMsg = e.message || 'Unknown error';
+                    console.error(`[${new Date().toISOString()}] [JOB:${pid}] FAILED after ${elapsed}ms | error:${errorMsg}`);
+                    saveJobState(pid, { status: 'error', error: errorMsg, startTime });
+                    throw new Error(errorMsg);
+                });
+
+            const jobState = { promise: job, status: 'processing', startTime };
+            jobs.set(pid, jobState);
+            saveJobState(pid, jobState);
+
+            job.then(result => {
+                jobs.set(pid, { status: 'ok', result, startTime });
+                saveJobState(pid, { status: 'ok', result, startTime });
+            }).catch(err => {
+                jobs.set(pid, { status: 'error', error: err.message, startTime });
+                saveJobState(pid, { status: 'error', error: err.message, startTime });
+            });
+
+            res.json({ success: true, pid, title: 'Video' });
+        } else {
+            // NON-VERCEL: Process synchronously (no state loss)
+            console.log(`[${new Date().toISOString()}] [JOB:${pid}] Processing synchronously on ${os.platform()}`);
+            try {
+                const { stdout } = await execAsync(command, { timeout: 300000 });
                 const elapsed = Date.now() - startTime;
                 console.log(`[${new Date().toISOString()}] [JOB:${pid}] yt-dlp finished in ${elapsed}ms | getting title...`);
+
                 // Get title
-                const { stdout } = await execAsync(`${ytDlpBinary} --get-title "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`);
+                const { stdout: titleStdout } = await execAsync(`${ytDlpBinary} --get-title "https://www.youtube.com/watch?v=${videoIdMatch[1]}"`);
                 const totalElapsed = Date.now() - startTime;
-                console.log(`[${new Date().toISOString()}] [JOB:${pid}] Complete | totalTime:${totalElapsed}ms | title:${stdout.trim()}`);
-                const result = { title: stdout.trim(), ext, filePath: outputPath };
-                saveJobState(pid, { status: 'ok', result, startTime });
-                return result;
-            })
-            .catch(e => {
+                const title = titleStdout.trim();
+                console.log(`[${new Date().toISOString()}] [JOB:${pid}] Complete | totalTime:${totalElapsed}ms | title:${title}`);
+
+                res.json({
+                    success: true,
+                    pid,
+                    title,
+                    ext,
+                    downloadUrl: `/api/stream?pid=${pid}`,
+                    progress: 1000
+                });
+            } catch (e) {
                 const elapsed = Date.now() - startTime;
                 const errorMsg = e.message || 'Unknown error';
                 console.error(`[${new Date().toISOString()}] [JOB:${pid}] FAILED after ${elapsed}ms | error:${errorMsg}`);
-                saveJobState(pid, { status: 'error', error: errorMsg, startTime });
-                throw new Error(errorMsg);
-            });
-
-        const jobState = { promise: job, status: 'processing', startTime };
-        jobs.set(pid, jobState);
-        saveJobState(pid, jobState);
-
-        // Update job status when done
-        job.then(result => {
-            jobs.set(pid, { status: 'ok', result, startTime });
-            saveJobState(pid, { status: 'ok', result, startTime });
-        }).catch(err => {
-            jobs.set(pid, { status: 'error', error: err.message, startTime });
-            saveJobState(pid, { status: 'error', error: err.message, startTime });
-        });
-
-        res.json({ success: true, pid, title: 'Video' });
+                res.status(500).json({ error: errorMsg });
+            }
+        }
     } catch (e) {
         console.error(`[${new Date().toISOString()}] [START] Error:`, e);
         res.status(500).json({ error: e.message || 'Failed to start download' });
@@ -191,23 +221,33 @@ app.post('/api/stream', (req, res) => {
         }
     }
 
-    if (!job || job.status !== 'ok') {
-        console.log(`[${new Date().toISOString()}] [STREAM:${pid}] File not found or job not complete`);
-        return res.status(404).send("File not found");
-    }
-
     const safeTitle = (title || 'media').replace(/[^\w\s]/gi, '').replace(/\s+/g, '_');
     const contentType = ext === 'mp4' ? 'video/mp4' : 'audio/mpeg';
 
-    try {
-        const fileSize = fs.statSync(job.result.filePath).size;
-        console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Streaming file | size:${fileSize} bytes | type:${contentType}`);
+    // Determine file path - try job state first, then construct from pid
+    let filePath = null;
+    if (job && job.result && job.result.filePath) {
+        filePath = job.result.filePath;
+    } else {
+        // Fallback: construct path directly (for synchronous mode)
+        const fallbackExt = ext || 'mp3';
+        filePath = path.join(downloadDir, `${pid}.${fallbackExt}`);
+    }
 
-        res.download(job.result.filePath, `${safeTitle}.${ext}`, (err) => {
+    try {
+        if (!fs.existsSync(filePath)) {
+            console.log(`[${new Date().toISOString()}] [STREAM:${pid}] File not found at ${filePath}`);
+            return res.status(404).send("File not found");
+        }
+
+        const fileSize = fs.statSync(filePath).size;
+        console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Streaming file | size:${fileSize} bytes | type:${contentType} | path:${filePath}`);
+
+        res.download(filePath, `${safeTitle}.${ext || 'mp3'}`, (err) => {
             if (err) console.error(`[${new Date().toISOString()}] [STREAM:${pid}] Download error:`, err);
             else console.log(`[${new Date().toISOString()}] [STREAM:${pid}] Download completed successfully`);
             // Delete file after download
-            try { fs.unlinkSync(job.result.filePath); } catch (e) { /* ignore */ }
+            try { fs.unlinkSync(filePath); } catch (e) { /* ignore */ }
             jobs.delete(pid);
             try { fs.unlinkSync(path.join(jobsDir, `${pid}.json`)); } catch (e) { /* ignore */ }
         });

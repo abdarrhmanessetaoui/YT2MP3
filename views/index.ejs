@@ -160,7 +160,26 @@
 
                 if (!startData.success) throw new Error(startData.error);
 
-                // 2. Start Loop
+                // 2. Check if server returned downloadUrl directly (synchronous mode for Fly.io/Render)
+                if (startData.downloadUrl) {
+                    // Synchronous mode: download is ready immediately
+                    txt.innerText = "Done! Downloading...";
+                    bar.style.width = '100%';
+                    bar.innerText = '100%';
+                    bar.style.background = "#2196F3";
+
+                    document.getElementById('hiddenUrl').value = startData.downloadUrl;
+                    document.getElementById('hiddenTitle').value = startData.title || 'Video';
+                    document.getElementById('hiddenExt').value = startData.ext || format;
+                    document.getElementById('hidden-dl-form').submit();
+
+                    setTimeout(() => { btn.disabled = false; btn.innerText = "Convert"; }, 3000);
+                    return;
+                }
+
+                // 3. Asynchronous mode (Vercel): poll for status
+                if (!startData.pid) throw new Error('No job ID received');
+
                 const interval = setInterval(async () => {
                     const pollRes = await fetch(`/api/status?id=${startData.pid}`);
                     const pollData = await pollRes.json();
@@ -173,16 +192,16 @@
                     bar.innerText = percent + '%';
                     txt.innerText = "Converting...";
 
-                    // 3. CHECK FOR COMPLETION
+                    // 4. CHECK FOR COMPLETION
                     if (pollData.downloadUrl) {
                         clearInterval(interval);
                         txt.innerText = "Done! Downloading...";
                         bar.style.background = "#2196F3"; // Blue
 
-                        // 4. TRIGGER INSTANT DOWNLOAD VIA HIDDEN FORM
+                        // 5. TRIGGER INSTANT DOWNLOAD VIA HIDDEN FORM
                         document.getElementById('hiddenUrl').value = pollData.downloadUrl;
                         document.getElementById('hiddenTitle').value = pollData.title || startData.title;
-                        document.getElementById('hiddenExt').value = pollData.ext || 'mp3';
+                        document.getElementById('hiddenExt').value = pollData.ext || format;
                         document.getElementById('hidden-dl-form').submit();
 
                         // Reset button shortly after
